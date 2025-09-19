@@ -1,3 +1,5 @@
+一个简陋的导航站
+
 在 Cloudflare Dashboard → KV，新建命名空间，绑定到 Worker，变量名填 NAV_KV。
 
 在 Worker → Settings → Variables 里添加 环境变量 ADMIN_KEY（例如 123456）。
