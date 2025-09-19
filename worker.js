@@ -61,7 +61,7 @@ button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; backg
 .group { margin-bottom:20px; }
 .group h2 { font-size:18px; border-left:4px solid green; padding-left:8px; display:flex; align-items:center; justify-content:space-between; }
 .cards { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
-.card { background:#fff; border-radius:10px; padding:10px; width:180px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+.card { background:#fff; border-radius:10px; padding:10px; width:180px; box-shadow:0 2px 5px rgba(0,0,0,0.1); cursor:grab; }
 .card a { text-decoration:none; color:#333; font-weight:bold; display:flex; align-items:center; gap:5px; margin-bottom:5px; }
 .card div { font-size:12px; color:#777; word-break:break-all; }
 .admin-btns { display:none; gap:5px; }
@@ -78,6 +78,7 @@ button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; backg
     <button id="loginBtn" onclick="login()">管理员登录</button>
     <button id="addGroupBtn" style="display:none;" onclick="openModal('group')">新增分组</button>
     <button id="addCardBtn" style="display:none;" onclick="openModal('card')">新增卡片</button>
+    <button id="saveSortBtn" style="display:none;" onclick="saveSort()">保存排序</button>
   </div>
 </header>
 
@@ -102,6 +103,7 @@ button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; backg
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
 let groups=[], cards=[];
 let adminMode=false, adminKey=null;
@@ -118,12 +120,12 @@ function render(){
   const container=document.getElementById('groups');
   container.innerHTML='';
   groups.forEach((g,i)=>{
-    const div=document.createElement('div'); div.className='group';
+    const div=document.createElement('div'); div.className='group'; div.dataset.index=i;
     let adminBtns=adminMode?'<span class="admin-btns" style="display:inline-flex;"><button onclick="editGroup('+i+')">编辑</button><button onclick="deleteGroup('+i+')">删除</button></span>':'';
     div.innerHTML='<h2>'+g+adminBtns+'</h2>';
-    const cardsDiv=document.createElement('div'); cardsDiv.className='cards';
+    const cardsDiv=document.createElement('div'); cardsDiv.className='cards'; cardsDiv.dataset.group=g;
     cards.filter(c=>c.group===g).forEach((c,j)=>{
-      const cd=document.createElement('div'); cd.className='card';
+      const cd=document.createElement('div'); cd.className='card'; cd.dataset.index=cards.indexOf(c);
       cd.innerHTML='<a href="'+c.url+'" target="_blank"><img src="https://www.google.com/s2/favicons?sz=32&domain='+c.url+'">'+c.title+'</a><div>'+c.url+'</div>';
       if(adminMode){
         const ab=document.createElement('div'); ab.className='admin-btns'; ab.style.display='flex';
@@ -134,6 +136,44 @@ function render(){
     });
     div.appendChild(cardsDiv); container.appendChild(div);
   });
+
+  if(adminMode){
+    enableDrag();
+  }
+}
+
+function enableDrag(){
+  // 分组拖拽
+  Sortable.create(document.getElementById('groups'), {
+    handle:'h2',
+    animation:150,
+    onEnd: ()=>{
+      groups=[...document.querySelectorAll('.group')].map(el=>groups[el.dataset.index]);
+    }
+  });
+  // 卡片拖拽
+  document.querySelectorAll('.cards').forEach(el=>{
+    Sortable.create(el,{
+      animation:150,
+      onEnd: ()=>{
+        const g=el.dataset.group;
+        const newOrder=[...el.querySelectorAll('.card')].map(cd=>cards[cd.dataset.index]);
+        const others=cards.filter(c=>c.group!==g);
+        cards=[...others,...newOrder];
+      }
+    });
+  });
+}
+
+// 保存排序
+async function saveSort(){
+  await fetch('/api/groups?key='+encodeURIComponent(adminKey),{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(groups)
+  });
+  await fetch('/api/cards?key='+encodeURIComponent(adminKey),{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cards)
+  });
+  alert("排序已保存！");
 }
 
 function login(){
@@ -142,6 +182,7 @@ function login(){
     document.getElementById('loginBtn').style.display='none';
     document.getElementById('addGroupBtn').style.display='inline-block';
     document.getElementById('addCardBtn').style.display='inline-block';
+    document.getElementById('saveSortBtn').style.display='inline-block';
     render();
   }
 }
