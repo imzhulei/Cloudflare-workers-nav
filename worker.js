@@ -50,7 +50,8 @@ function getHTML() {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>我的导航</title>
 <style>
-body { font-family: Arial, sans-serif; background:#faf9f7; margin:0; padding:0; }
+body.light { font-family: Arial, sans-serif; background:#faf9f7; margin:0; padding:0; color: #333; }
+body.dark { font-family: Arial, sans-serif; background:#333; margin:0; padding:0; color: #faf9f7; }
 header { padding:10px; display:flex; justify-content:space-between; align-items:center; }
 header h1 { margin:0; font-size:20px; }
 header .right { display:flex; gap:10px; }
@@ -71,14 +72,15 @@ button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; backg
 .modal-content input, .modal-content select { width:100%; margin-bottom:10px; padding:6px; }
 </style>
 </head>
-<body>
+<body class="light">
 <header>
   <h1>我的导航</h1>
   <div class="right">
-    <button id="loginBtn" onclick="login()">管理员登录</button>
+    <button id="loginBtn" onclick="openLoginModal()">管理员登录</button>
     <button id="addGroupBtn" style="display:none;" onclick="openModal('group')">新增分组</button>
     <button id="addCardBtn" style="display:none;" onclick="openModal('card')">新增卡片</button>
     <button id="saveSortBtn" style="display:none;" onclick="saveSort()">保存排序</button>
+    <button id="toggleThemeBtn" onclick="toggleTheme()">切换主题</button>
   </div>
 </header>
 
@@ -100,6 +102,17 @@ button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; backg
     <div id="modalForm"></div>
     <button onclick="saveModal()">保存</button>
     <button onclick="closeModal()">取消</button>
+  </div>
+</div>
+
+<!-- 登录弹窗 -->
+<div class="modal" id="loginModal">
+  <div class="modal-content">
+    <h3>管理员登录</h3>
+    <input type="password" id="adminKeyInput" placeholder="请输入管理员口令">
+    <button onclick="login()">登录</button>
+    <button onclick="closeLoginModal()">取消</button>
+    <button id="logoutBtn" style="display:none;" onclick="logout()">退出登录</button>
   </div>
 </div>
 
@@ -139,11 +152,21 @@ function render(){
 
   if(adminMode){
     enableDrag();
+    document.getElementById('logoutBtn').style.display = 'inline-block';
+    document.getElementById('loginBtn').style.display = 'none';
+    document.getElementById('addGroupBtn').style.display = 'inline-block';
+    document.getElementById('addCardBtn').style.display = 'inline-block';
+    document.getElementById('saveSortBtn').style.display = 'inline-block';
+  } else {
+    document.getElementById('logoutBtn').style.display = 'none';
+    document.getElementById('loginBtn').style.display = 'inline-block';
+    document.getElementById('addGroupBtn').style.display = 'none';
+    document.getElementById('addCardBtn').style.display = 'none';
+    document.getElementById('saveSortBtn').style.display = 'none';
   }
 }
 
 function enableDrag(){
-  // 分组拖拽
   Sortable.create(document.getElementById('groups'), {
     handle:'h2',
     animation:150,
@@ -151,7 +174,7 @@ function enableDrag(){
       groups=[...document.querySelectorAll('.group')].map(el=>groups[el.dataset.index]);
     }
   });
-  // 卡片拖拽
+
   document.querySelectorAll('.cards').forEach(el=>{
     Sortable.create(el,{
       animation:150,
@@ -165,7 +188,6 @@ function enableDrag(){
   });
 }
 
-// 保存排序
 async function saveSort(){
   await fetch('/api/groups?key='+encodeURIComponent(adminKey),{
     method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(groups)
@@ -176,80 +198,100 @@ async function saveSort(){
   alert("排序已保存！");
 }
 
-function login(){
-  const key=prompt("请输入管理员口令：");
-  if(key){ adminMode=true; adminKey=key;
-    document.getElementById('loginBtn').style.display='none';
-    document.getElementById('addGroupBtn').style.display='inline-block';
-    document.getElementById('addCardBtn').style.display='inline-block';
-    document.getElementById('saveSortBtn').style.display='inline-block';
-    render();
-  }
+function openLoginModal() {
+  document.getElementById('loginModal').style.display = 'flex';
 }
 
-function openModal(type,index=null){
-  editingType=type; editingIndex=index;
-  document.getElementById('modal').style.display='flex';
-  const form=document.getElementById('modalForm');
-  if(type==='group'){
-    document.getElementById('modalTitle').innerText=index==null?'新增分组':'编辑分组';
-    const val=index!=null?groups[index]:'';
-    form.innerHTML='<input type="text" id="groupName" placeholder="分组名称" value="'+val+'">';
-  }else if(type==='card'){
-    document.getElementById('modalTitle').innerText=index==null?'新增卡片':'编辑卡片';
-    let card=index!=null?cards[index]:{title:'',url:'',group:groups[0]||'',color:'#ffffff'};
-    let opts=groups.map(g=>'<option '+(g===card.group?'selected':'')+'>'+g+'</option>').join('');
-    form.innerHTML='<input type="text" id="cardTitle" placeholder="标题" value="'+card.title+'">'+
-      '<input type="text" id="cardUrl" placeholder="链接" value="'+card.url+'">'+
-      '<select id="cardGroup">'+opts+'</select>'+
-      '<input type="color" id="cardColor" value="'+(card.color||'#ffffff')+'">';
+function closeLoginModal() {
+  document.getElementById('loginModal').style.display = 'none';
+}
+
+function login() {
+  const key = document.getElementById('adminKeyInput').value.trim();
+  if (key === '') return;
+
+  adminKey = key; // Store admin key
+  adminMode = true; // Set admin mode
+  closeLoginModal(); // Close the login modal
+  loadData(); // Reload data to render admin buttons and groups/cards
+}
+
+function logout() {
+  adminMode = false; // Reset admin mode
+  adminKey = null; // Clear admin key
+  loadData(); // Reload data to hide admin buttons
+}
+
+function openModal(type, index = null) {
+  editingType = type; editingIndex = index;
+  document.getElementById('modal').style.display = 'flex';
+  const form = document.getElementById('modalForm');
+  if (type === 'group') {
+    document.getElementById('modalTitle').innerText = index == null ? '新增分组' : '编辑分组';
+    const val = index != null ? groups[index] : '';
+    form.innerHTML = '<input type="text" id="groupName" placeholder="分组名称" value="' + val + '">';
+  } else if (type === 'card') {
+    document.getElementById('modalTitle').innerText = index == null ? '新增卡片' : '编辑卡片';
+    let card = index != null ? cards[index] : { title: '', url: '', group: groups[0] || '', color: '#ffffff' };
+    let opts = groups.map(g => '<option ' + (g === card.group ? 'selected' : '') + '>' + g + '</option>').join('');
+    form.innerHTML = '<input type="text" id="cardTitle" placeholder="标题" value="' + card.title + '">' +
+      '<input type="text" id="cardUrl" placeholder="链接" value="' + card.url + '">' +
+      '<select id="cardGroup">' + opts + '</select>' +
+      '<input type="color" id="cardColor" value="' + (card.color || '#ffffff') + '">';
   }
 }
-function closeModal(){ document.getElementById('modal').style.display='none'; }
+function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
-async function saveModal(){
-  if(editingType==='group'){
-    const val=document.getElementById('groupName').value.trim(); if(!val) return;
-    if(editingIndex==null) groups.push(val); else groups[editingIndex]=val;
-    await fetch('/api/groups?key='+encodeURIComponent(adminKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(groups)});
-  }else if(editingType==='card'){
-    const title=document.getElementById('cardTitle').value.trim();
-    const url=document.getElementById('cardUrl').value.trim();
-    const group=document.getElementById('cardGroup').value;
-    const color=document.getElementById('cardColor').value;
-    if(!title||!url) return;
-    if(editingIndex==null) cards.push({title,url,group,color});
-    else cards[editingIndex]={title,url,group,color};
-    await fetch('/api/cards?key='+encodeURIComponent(adminKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cards)});
+async function saveModal() {
+  if (editingType === 'group') {
+    const val = document.getElementById('groupName').value.trim(); if (!val) return;
+    if (editingIndex == null) groups.push(val); else groups[editingIndex] = val;
+    await fetch('/api/groups?key=' + encodeURIComponent(adminKey), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groups) });
+  } else if (editingType === 'card') {
+    const title = document.getElementById('cardTitle').value.trim();
+    const url = document.getElementById('cardUrl').value.trim();
+    const group = document.getElementById('cardGroup').value;
+    const color = document.getElementById('cardColor').value;
+    if (!title || !url) return;
+    if (editingIndex == null) cards.push({ title, url, group, color });
+    else cards[editingIndex] = { title, url, group, color };
+    await fetch('/api/cards?key=' + encodeURIComponent(adminKey), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cards) });
   }
   closeModal(); render();
 }
 
-async function deleteGroup(i){
-  if(confirm("删除分组会同时删除该分组下的卡片，确认？")){
-    const g=groups[i]; groups.splice(i,1); cards=cards.filter(c=>c.group!==g);
-    await fetch('/api/groups?key='+encodeURIComponent(adminKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(groups)});
-    await fetch('/api/cards?key='+encodeURIComponent(adminKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cards)});
+async function deleteGroup(i) {
+  if (confirm("删除分组会同时删除该分组下的卡片，确认？")) {
+    const g = groups[i]; groups.splice(i, 1); cards = cards.filter(c => c.group !== g);
+    await fetch('/api/groups?key=' + encodeURIComponent(adminKey), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groups) });
+    await fetch('/api/cards?key=' + encodeURIComponent(adminKey), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cards) });
     render();
   }
 }
-async function deleteCard(i){
-  if(confirm("确认删除该卡片？")){
-    cards.splice(i,1);
-    await fetch('/api/cards?key='+encodeURIComponent(adminKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cards)});
+async function deleteCard(i) {
+  if (confirm("确认删除该卡片？")) {
+    cards.splice(i, 1);
+    await fetch('/api/cards?key=' + encodeURIComponent(adminKey), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cards) });
     render();
   }
 }
 
-function editGroup(i){ openModal('group',i); }
-function editCard(i){ openModal('card',i); }
+function editGroup(i) { openModal('group', i); }
+function editCard(i) { openModal('card', i); }
 
-function doSearch(){
-  const q=document.getElementById('searchInput').value.trim();
-  if(!q) return;
-  const eng=document.getElementById('engine').value;
-  let url=eng==='google'?'https://www.google.com/search?q='+encodeURIComponent(q):'https://www.baidu.com/s?wd='+encodeURIComponent(q);
-  window.open(url,'_blank');
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  const eng = document.getElementById('engine').value;
+  let url = eng === 'google' ? 'https://www.google.com/search?q=' + encodeURIComponent(q) : 'https://www.baidu.com/s?wd=' + encodeURIComponent(q);
+  window.open(url, '_blank');
+}
+
+let isDarkTheme = false;
+
+function toggleTheme() {
+  isDarkTheme = !isDarkTheme;
+  document.body.className = isDarkTheme ? 'dark' : 'light';
 }
 </script>
 </body>
