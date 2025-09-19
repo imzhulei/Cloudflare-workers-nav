@@ -81,6 +81,7 @@ button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; backg
     <button id="addCardBtn" style="display:none;" onclick="openModal('card')">新增卡片</button>
     <button id="saveSortBtn" style="display:none;" onclick="saveSort()">保存排序</button>
     <button id="toggleThemeBtn" onclick="toggleTheme()">切换主题</button>
+    <button id="logoutBtn" style="display:none;" onclick="logout()">退出登录</button>
   </div>
 </header>
 
@@ -112,7 +113,6 @@ button { padding:6px 12px; border:none; border-radius:6px; cursor:pointer; backg
     <input type="password" id="adminKeyInput" placeholder="请输入管理员口令">
     <button onclick="login()">登录</button>
     <button onclick="closeLoginModal()">取消</button>
-    <button id="logoutBtn" style="display:none;" onclick="logout()">退出登录</button>
   </div>
 </div>
 
@@ -152,13 +152,13 @@ function render(){
 
   if(adminMode){
     enableDrag();
-    document.getElementById('logoutBtn').style.display = 'inline-block';
+    document.getElementById('logoutBtn').style.display = 'inline-block'; // 显示退出登录按钮
     document.getElementById('loginBtn').style.display = 'none';
     document.getElementById('addGroupBtn').style.display = 'inline-block';
     document.getElementById('addCardBtn').style.display = 'inline-block';
     document.getElementById('saveSortBtn').style.display = 'inline-block';
   } else {
-    document.getElementById('logoutBtn').style.display = 'none';
+    document.getElementById('logoutBtn').style.display = 'none'; // 隐藏退出登录按钮
     document.getElementById('loginBtn').style.display = 'inline-block';
     document.getElementById('addGroupBtn').style.display = 'none';
     document.getElementById('addCardBtn').style.display = 'none';
@@ -240,6 +240,7 @@ function openModal(type, index = null) {
       '<input type="color" id="cardColor" value="' + (card.color || '#ffffff') + '">';
   }
 }
+
 function closeModal() { document.getElementById('modal').style.display = 'none'; }
 
 async function saveModal() {
